@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quote Engine | LTBC Digital</title>
+  
+  <meta name="theme-color" content="#2563eb" id="theme-color-meta">
+  
+  <style>
+    /* Base Variables */
+    :root {
+      --primary: #2563eb;
+      --primary-light: color-mix(in srgb, var(--primary) 10%, transparent);
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 80px; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .card { background: var(--surface); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+
+    h1, h2 { font-size: 1.25rem; margin-bottom: 15px; color: var(--text); }
+    .config-header { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; align-items: flex-start; }
+
+    .input-group { margin-bottom: 15px; }
+    .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+    input[type="text"], input[type="number"], input[type="color"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+    input[type="checkbox"] { width: auto; transform: scale(1.2); margin-right: 10px; }
+
+    .print-headers { display: none; font-size: 0.85rem; font-weight: bold; color: var(--text-muted); margin-bottom: 5px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+    .row-item { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); width: 100%; margin-top: 10px; }
+    .btn-danger { background: #ef4444; padding: 10px; }
+
+    .totals { border-top: 1px solid var(--border); padding-top: 15px; margin-top: 20px; font-size: 1.1rem; }
+    .totals-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .grand-total { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .deposit-box { background-color: var(--primary-light); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--primary); }
+
+    .terms-box { margin-top: 20px; font-size: 0.85rem; color: var(--text-muted); }
+    .sticky-footer { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; border-top: 1px solid var(--border); display: flex; justify-content: center; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); z-index: 100; }
+
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal { background: var(--surface); padding: 20px; border-radius: 12px; width: 95%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .settings-btn { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text); margin-bottom: 10px; display: inline-flex; align-items: center; gap: 5px; }
+
+    /* PDF / Print Layout Engine */
+    @media print {
+      body { background: white; padding: 0; }
+      .container { max-width: 100%; padding: 0; }
+      .card { border: none; box-shadow: none; margin-bottom: 10px; padding: 10px 0; }
+      .deposit-box { border: none; background-color: transparent; padding: 0; margin-top: 10px; }
+      .btn, .sticky-footer, .delete-btn, .settings-btn { display: none !important; }
+      
+      input { border: none !important; padding: 0 !important; background: transparent !important; }
+      input::placeholder { color: transparent !important; }
+      
+      .print-headers { display: grid; grid-template-columns: 3fr 1fr 1fr; gap: 5px; }
+      .row-item { grid-template-columns: 3fr 1fr 1fr; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="config-header">
+    <div>
+      <h1 id="biz-name" style="margin: 0; font-size: 1.5rem;">Business Name</h1>
+      <div id="biz-address" style="color: var(--text-muted); font-size: 0.9rem;">Address & Phone</div>
+    </div>
+    <div style="text-align: right; color: var(--text-muted); font-size: 0.9rem;">
+      <button class="settings-btn" onclick="toggleSettings()">⚙️ Settings</button><br>
+      <strong>QUOTE / ESTIMATE</strong><br>
+      <span id="date-display"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="client-grid">
+      <div class="input-group" style="margin-bottom: 0;">
+        <label>Quote Ref Number</label>
+        <input type="text" placeholder="e.g. Q-1045">
+      </div>
+      <div class="input-group" style="margin-bottom: 0;">
+        <label>Client Name / Job</label>
+        <input type="text" placeholder="e.g. Smith - Rewire">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Materials & Parts</h2>
+    <div class="print-headers">
+      <span>Item Description</span>
+      <span>Qty</span>
+      <span>Unit Price</span>
+    </div>
+    <div id="materials-container"></div>
+    <button class="btn btn-outline" onclick="addMaterialRow()">+ Add Material</button>
+  </div>
+
+  <div class="card">
+    <h2>Labour & Time</h2>
+    <div class="print-headers">
+      <span>Task Description</span>
+      <span>Hours</span>
+      <span>Hourly Rate</span>
+    </div>
+    <div id="labor-container"></div>
+    <button class="btn btn-outline" onclick="addLaborRow()">+ Add Labour</button>
+  </div>
+
+  <div class="card totals">
+    <div class="totals-row">
+      <span>Subtotal</span>
+      <span id="subtotal">£0.00</span>
+    </div>
+    <div class="totals-row" id="vat-row">
+      <span>VAT (20%)</span>
+      <span id="vat-amount">£0.00</span>
+    </div>
+    <div class="totals-row grand-total">
+      <span>Total</span>
+      <span id="grand-total">£0.00</span>
+    </div>
+    <div class="deposit-box">
+      <div class="totals-row" style="margin: 0; font-weight: 600;">
+        <span>Required Deposit (30%)</span>
+        <span id="deposit-amount">£0.00</span>
+      </div>
+    </div>
+    
+    <div class="terms-box" id="payment-terms">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</div>
+
+<div class="sticky-footer">
+  <button class="btn" onclick="window.print()" style="width: 100%; max-width: 400px; font-size: 1.1rem; padding: 15px;">Generate PDF Quote</button>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay">
+  <div class="modal">
+    <h2 style="margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">App Settings</h2>
+    
+    <div class="input-group">
+      <label>Business Name</label>
+      <input type="text" id="set-name" placeholder="Apex Electrical Services UK">
+    </div>
+    
+    <div class="input-group">
+      <label>Business Address</label>
+      <input type="text" id="set-address" placeholder="Unit 4, Enterprise Centre, London, E1 4JZ">
+    </div>
+    
+    <div class="client-grid" style="margin-bottom: 15px;">
+      <div>
+        <label>Phone Number</label>
+        <input type="text" id="set-phone" placeholder="07700 900123">
+      </div>
+      <div>
+        <label>Brand Colour</label>
+        <input type="color" id="set-color" value="#2563eb" style="padding: 2px; height: 42px;">
+      </div>
+    </div>
+
+    <div class="client-grid" style="margin-bottom: 15px;">
+      <div>
+        <label>Default Hourly Rate (£)</label>
+        <input type="number" id="set-rate" value="45.00" step="0.01">
+      </div>
+      <div style="display: flex; align-items: center; padding-top: 25px;">
+        <input type="checkbox" id="set-vat" checked>
+        <label style="margin: 0;">VAT Registered (20%)</label>
+      </div>
+    </div>
+
+    <h3 style="font-size: 1rem; margin: 20px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">Payment Details</h3>
+    
+    <div class="input-group">
+      <label>Bank Name</label>
+      <input type="text" id="set-bank" placeholder="e.g. Barclays">
+    </div>
+    
+    <div class="client-grid" style="margin-bottom: 15px;">
+      <div>
+        <label>Sort Code</label>
+        <input type="text" id="set-sort" placeholder="20-11-22">
+      </div>
+      <div>
+        <label>Account Number</label>
+        <input type="text" id="set-account" placeholder="10293847">
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Payment Terms (Small Print)</label>
+      <input type="text" id="set-terms" value="Quotes are valid for 30 days. Deposit required to secure booking.">
+    </div>
+
+    <button class="btn" onclick="saveSettings()" style="width: 100%; padding: 15px; margin-top: 10px;">Save Changes</button>
+    <button class="btn-outline" onclick="toggleSettings()" style="padding: 10px; margin-top: 10px; border: none; text-align: center;">Close without saving</button>
+  </div>
+</div>
+
+<script>
+  let config = {
+    themeColor: "#2563eb",
+    name: "Apex Electrical Service UK",
+    address: "Your Business Address",
+    phone: "Your Phone Number",
+    vatRegistered: true,
+    defaultHourlyRate: 45.00,
+    bankName: "Your Bank",
+    sortCode: "00-00-00",
+    account: "00000000",
+    terms: "Quotes are valid for 30 days. Deposit required to secure booking."
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("date-display").textContent = new Date().toLocaleDateString('en-GB');
+    loadSettings();
+    addMaterialRow();
+    addLaborRow();
+  });
+
+  function loadSettings() {
+    const saved = localStorage.getItem('tradesmanConfig');
+    if (saved) {
+      config = JSON.parse(saved);
+    }
+    
+    // Update DOM
+    document.documentElement.style.setProperty('--primary', config.themeColor);
+    document.getElementById('theme-color-meta').setAttribute('content', config.themeColor);
+    
+    document.getElementById("biz-name").textContent = config.name;
+    document.getElementById("biz-address").textContent = `${config.address} | ${config.phone}`;
+    
+    document.getElementById("payment-terms").innerHTML = `
+      <strong>How to Pay:</strong> BACS Transfer to ${config.bankName}<br>
+      <strong>Sort Code:</strong> ${config.sortCode} | <strong>Account:</strong> ${config.account}<br><br>
+      <em>${config.terms}</em>
+    `;
+
+    document.getElementById("vat-row").style.display = config.vatRegistered ? 'flex' : 'none';
+
+    // Populate Modal
+    document.getElementById("set-name").value = config.name;
+    document.getElementById("set-address").value = config.address;
+    document.getElementById("set-phone").value = config.phone;
+    document.getElementById("set-color").value = config.themeColor;
+    document.getElementById("set-rate").value = config.defaultHourlyRate;
+    document.getElementById("set-vat").checked = config.vatRegistered;
+    document.getElementById("set-bank").value = config.bankName;
+    document.getElementById("set-sort").value = config.sortCode;
+    document.getElementById("set-account").value = config.account;
+    document.getElementById("set-terms").value = config.terms;
+    
+    calculate(); // Recalculate based on VAT status
+  }
+
+  function saveSettings() {
+    config = {
+      name: document.getElementById("set-name").value || "Apex Electrical Service UK",
+      address: document.getElementById("set-address").value || "Your Business Address",
+      phone: document.getElementById("set-phone").value || "Your Phone Number",
+      themeColor: document.getElementById("set-color").value || "#2563eb",
+      defaultHourlyRate: parseFloat(document.getElementById("set-rate").value) || 45.00,
+      vatRegistered: document.getElementById("set-vat").checked,
+      bankName: document.getElementById("set-bank").value || "Your Bank",
+      sortCode: document.getElementById("set-sort").value || "00-00-00",
+      account: document.getElementById("set-account").value || "00000000",
+      terms: document.getElementById("set-terms").value || "Quotes are valid for 30 days. Deposit required to secure booking."
+    };
+    
+    localStorage.setItem('tradesmanConfig', JSON.stringify(config));
+    loadSettings();
+    toggleSettings();
+  }
+
+  function toggleSettings() {
+    document.getElementById("settings-modal").classList.toggle("active");
+  }
+
+  function addMaterialRow() {
+    const div = document.createElement("div");
+    div.className = "row-item";
+    div.innerHTML = `
+      <input type="text" placeholder="Description" oninput="calculate()">
+      <input type="number" placeholder="Qty" value="1" min="1" oninput="calculate()" class="mat-qty">
+      <input type="number" placeholder="Unit £" step="0.01" oninput="calculate()" class="mat-price">
+      <button class="btn btn-danger delete-btn" onclick="this.parentElement.remove(); calculate()">X</button>
+    `;
+    document.getElementById("materials-container").appendChild(div);
+  }
+
+  function addLaborRow() {
+    const div = document.createElement("div");
+    div.className = "row-item";
+    div.innerHTML = `
+      <input type="text" placeholder="Task Description" oninput="calculate()">
+      <input type="number" placeholder="Hours" value="1" min="0.5" step="0.5" oninput="calculate()" class="lab-hours">
+      <input type="number" placeholder="Rate £" value="${config.defaultHourlyRate}" step="0.01" oninput="calculate()" class="lab-rate">
+      <button class="btn btn-danger delete-btn" onclick="this.parentElement.remove(); calculate()">X</button>
+    `;
+    document.getElementById("labor-container").appendChild(div);
+  }
+
+  function calculate() {
+    let subtotal = 0;
+    
+    document.querySelectorAll(".mat-qty").forEach((el, index) => {
+      const qty = parseFloat(el.value) || 0;
+      const price = parseFloat(document.querySelectorAll(".mat-price")[index].value) || 0;
+      subtotal += (qty * price);
+    });
+
+    document.querySelectorAll(".lab-hours").forEach((el, index) => {
+      const hours = parseFloat(el.value) || 0;
+      const rate = parseFloat(document.querySelectorAll(".lab-rate")[index].value) || 0;
+      subtotal += (hours * rate);
+    });
+
+    const vat = config.vatRegistered ? (subtotal * 0.20) : 0;
+    const total = subtotal + vat;
+    const deposit = total * 0.30;
+
+    document.getElementById("subtotal").textContent = '£' + subtotal.toFixed(2);
+    document.getElementById("vat-amount").textContent = '£' + vat.toFixed(2);
+    document.getElementById("grand-total").textContent = '£' + total.toFixed(2);
+    document.getElementById("deposit-amount").textContent = '£' + deposit.toFixed(2);
+  }
+</script>
+</body>
+</html>
